@@ -1,0 +1,205 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </h1>
+            <p class="text-muted">Bienvenido, {{ user.full_name }}</p>
+        </div>
+    </div>
+
+    <!-- Estadísticas Rápidas -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-start border-primary border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted text-uppercase mb-2">Ventas Hoy</h6>
+                            <h2 class="mb-0">{{ today_sales }}</h2>
+                        </div>
+                        <div class="text-primary fs-1">
+                            <i class="bi bi-receipt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-start border-success border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted text-uppercase mb-2">RUS Mes</h6>
+                            <h2 class="mb-0">S/ {{ "%.2f"|format(rus_control.total_invoiced) }}</h2>
+                        </div>
+                        <div class="text-success fs-1">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-start border-warning border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted text-uppercase mb-2">% Uso RUS</h6>
+                            <h2 class="mb-0">{{ "%.1f"|format(rus_control.usage_percentage()) }}%</h2>
+                        </div>
+                        <div class="text-warning fs-1">
+                            <i class="bi bi-speedometer"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-start border-info border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="text-muted text-uppercase mb-2">Estado</h6>
+                            <h2 class="mb-0">
+                                {% if rus_control.alert_level == 'GREEN' %}
+                                    <span class="badge bg-success">Normal</span>
+                                {% elif rus_control.alert_level == 'YELLOW' %}
+                                    <span class="badge bg-warning">Alerta</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Crítico</span>
+                                {% endif %}
+                            </h2>
+                        </div>
+                        <div class="text-info fs-1">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control RUS -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bar-chart"></i> Control RUS Mensual
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Límite RUS (S/ 8,000)</span>
+                            <strong>S/ {{ "%.2f"|format(rus_control.total_invoiced) }}</strong>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar {% if rus_control.alert_level == 'RED' %}bg-danger{% elif rus_control.alert_level == 'YELLOW' %}bg-warning{% else %}bg-success{% endif %}"
+                                 role="progressbar"
+                                 style="width: {{ rus_control.usage_percentage() }}%"
+                                 aria-valuenow="{{ rus_control.usage_percentage() }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                {{ "%.1f"|format(rus_control.usage_percentage()) }}%
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <p class="text-muted mb-1">Facturado</p>
+                                <h4 class="mb-0">S/ {{ "%.2f"|format(rus_control.total_invoiced) }}</h4>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <p class="text-muted mb-1">Disponible</p>
+                            <h4 class="mb-0">S/ {{ "%.2f"|format(rus_control.remaining_amount()) }}</h4>
+                        </div>
+                    </div>
+
+                    {% if rus_control.is_blocked %}
+                    <div class="alert alert-danger mt-3 mb-0">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Límite RUS Excedido!</strong> No se pueden emitir más boletas este mes.
+                    </div>
+                    {% elif rus_control.alert_level == 'YELLOW' %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="bi bi-exclamation-circle"></i>
+                        <strong>Precaución:</strong> Te acercas al límite mensual del RUS.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning"></i> Accesos Rápidos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="/pos" class="btn btn-primary btn-lg">
+                            <i class="bi bi-cash-register"></i> Nueva Venta (POS)
+                        </a>
+                        <a href="/sales" class="btn btn-outline-primary">
+                            <i class="bi bi-receipt-cutoff"></i> Ver Ventas
+                        </a>
+                        <a href="/customers" class="btn btn-outline-secondary">
+                            <i class="bi bi-people"></i> Clientes
+                        </a>
+                        <a href="/reports" class="btn btn-outline-info">
+                            <i class="bi bi-graph-up"></i> Reportes
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del Sistema -->
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <i class="bi bi-building fs-2 text-primary"></i>
+                            <p class="mb-0 mt-2"><strong>M & L Import Export Peru SAC</strong></p>
+                            <small class="text-muted">RUC: 20605555790</small>
+                        </div>
+                        <div class="col-md-3">
+                            <i class="bi bi-calendar-check fs-2 text-success"></i>
+                            <p class="mb-0 mt-2"><strong>{{ rus_control.transaction_count }}</strong></p>
+                            <small class="text-muted">Transacciones este mes</small>
+                        </div>
+                        <div class="col-md-3">
+                            <i class="bi bi-person-badge fs-2 text-warning"></i>
+                            <p class="mb-0 mt-2"><strong>{{ user.role_display }}</strong></p>
+                            <small class="text-muted">Rol del usuario</small>
+                        </div>
+                        <div class="col-md-3">
+                            <i class="bi bi-shield-check fs-2 text-info"></i>
+                            <p class="mb-0 mt-2"><strong>Sistema RUS</strong></p>
+                            <small class="text-muted">Régimen Simplificado</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

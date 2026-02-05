@@ -73,6 +73,17 @@ def create_app(config_class=None):
         from app.models.user import User
         return User.query.get(int(user_id))
 
+    # Ruta raíz
+    @app.route('/')
+    def index():
+        """Ruta raíz - redirige a login o dashboard según autenticación"""
+        from flask import redirect, url_for
+        from flask_login import current_user
+
+        if current_user.is_authenticated:
+            return redirect(url_for('dashboard.index'))
+        return redirect(url_for('auth.login'))
+
     # Registrar Blueprints
     register_blueprints(app)
 
