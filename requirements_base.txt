@@ -1,0 +1,29 @@
+# Instalación Base - Paso 1
+# Ejecutar: pip install -r requirements_base.txt
+
+# Actualizar herramientas base
+pip>=24.0
+setuptools>=69.0.0
+wheel>=0.42.0
+
+# Core Framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Database
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+pymysql==1.1.0
+
+# Authentication & Security
+Flask-Login==0.6.3
+Flask-Bcrypt==1.0.1
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# Logging
+loguru==0.7.2
+
+# Utils
+click==8.1.7

@@ -1,0 +1,207 @@
+# ==============================================
+# iziSales - Git Ignore
+# ==============================================
+
+# ==============================================
+# Python
+# ==============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ==============================================
+# Virtual Environment
+# ==============================================
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# ==============================================
+# Flask
+# ==============================================
+instance/
+.webassets-cache
+.flask_session/
+
+# ==============================================
+# Environment Variables (CRÍTICO - NO SUBIR)
+# ==============================================
+.env
+.env.local
+.env.production
+.env.*.local
+
+# ==============================================
+# Database
+# ==============================================
+*.db
+*.sqlite
+*.sqlite3
+
+# ==============================================
+# Storage (Archivos generados)
+# ==============================================
+storage/pdf/*.pdf
+storage/pdf/qr/*.png
+storage/xml/*.xml
+storage/cdr/*.xml
+storage/backup/*.sql
+storage/backup/*.gz
+
+# Mantener estructura de carpetas
+!storage/pdf/.gitkeep
+!storage/pdf/qr/.gitkeep
+!storage/xml/.gitkeep
+!storage/cdr/.gitkeep
+!storage/backup/.gitkeep
+
+# ==============================================
+# Logs
+# ==============================================
+logs/*.log
+logs/*.log.*
+logs/*.gz
+*.log
+
+# Mantener carpeta de logs
+!logs/.gitkeep
+
+# ==============================================
+# Testing
+# ==============================================
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+htmlcov/
+
+# ==============================================
+# IDEs
+# ==============================================
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Visual Studio
+.vs/
+
+# ==============================================
+# OS
+# ==============================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ==============================================
+# Celery
+# ==============================================
+celerybeat-schedule
+celerybeat.pid
+
+# ==============================================
+# Gunicorn
+# ==============================================
+gunicorn.pid
+
+# ==============================================
+# Backups temporales
+# ==============================================
+*.bak
+*.swp
+*.swo
+*~
+
+# ==============================================
+# Migrations temporales (mantener versiones)
+# ==============================================
+migrations/versions/*.pyc
+
+# ==============================================
+# Jupyter Notebook
+# ==============================================
+.ipynb_checkpoints
+
+# ==============================================
+# Documentación generada
+# ==============================================
+docs/_build/
+site/
+
+# ==============================================
+# Archivos de configuración local
+# ==============================================
+config.local.py
+
+# ==============================================
+# SSL Certificates (NO SUBIR)
+# ==============================================
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+
+# ==============================================
+# Archivos temporales
+# ==============================================
+tmp/
+temp/
+*.tmp
