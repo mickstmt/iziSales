@@ -23,10 +23,10 @@ if __name__ == '__main__':
     debug = os.getenv('DEBUG', 'True').lower() == 'true'
 
     print("=" * 60)
-    print(f"🚀 iziSales v{app.config.get('APP_VERSION', '1.0.0')}")
-    print(f"📍 Entorno: {env}")
-    print(f"🌐 URL: http://{host}:{port}")
-    print(f"🔧 Debug: {debug}")
+    print(f"iziSales v{app.config.get('APP_VERSION', '1.0.0')}")
+    print(f"Entorno: {env}")
+    print(f"URL: http://{host}:{port}")
+    print(f"Debug: {debug}")
     print("=" * 60)
 
     app.run(
