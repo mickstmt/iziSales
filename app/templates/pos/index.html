@@ -1,0 +1,395 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Punto de Venta{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <h1 class="h3">
+                <i class="bi bi-cash-register"></i> Punto de Venta
+            </h1>
+        </div>
+        <div class="col-auto">
+            <div class="alert alert-{% if rus_control.alert_level == 'RED' %}danger{% elif rus_control.alert_level == 'YELLOW' %}warning{% else %}success{% endif %} mb-0 py-2">
+                <strong>RUS:</strong> S/ {{ "%.2f"|format(rus_control.total_invoiced) }} / S/ 8,000
+                ({{ "%.1f"|format(rus_control.usage_percentage()) }}%)
+            </div>
+        </div>
+    </div>
+
+    {% if rus_control.is_blocked %}
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle"></i>
+        <strong>Límite RUS Excedido!</strong> No se pueden emitir más boletas este mes.
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Panel Izquierdo: Productos y Búsqueda -->
+        <div class="col-md-7">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Buscar Producto</label>
+                        <input type="text" id="productSearch" class="form-control form-control-lg"
+                               placeholder="Buscar por nombre o SKU..." autocomplete="off">
+                        <div id="productResults" class="list-group mt-2" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carrito de Compras -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-cart"></i> Carrito
+                        <span class="badge bg-light text-dark" id="cartCount">0</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="cartItems">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-cart-x" style="font-size: 3rem;"></i>
+                            <p>El carrito está vacío</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Subtotal:</strong>
+                        </div>
+                        <div class="col-6 text-end">
+                            <span id="subtotalDisplay">S/ 0.00</span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>IGV (18%):</strong>
+                        </div>
+                        <div class="col-6 text-end">
+                            <span id="taxDisplay">S/ 0.00</span>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6">
+                            <h4>Total:</h4>
+                        </div>
+                        <div class="col-6 text-end">
+                            <h4 class="text-primary" id="totalDisplay">S/ 0.00</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Cliente y Finalizar -->
+        <div class="col-md-5">
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-person"></i> Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Documento</label>
+                        <select id="documentType" class="form-select">
+                            <option value="DNI">DNI</option>
+                            <option value="RUC">RUC</option>
+                            <option value="CE">Carné de Extranjería</option>
+                            <option value="PASAPORTE">Pasaporte</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Número de Documento</label>
+                        <div class="input-group">
+                            <input type="text" id="documentNumber" class="form-control"
+                                   placeholder="Ingrese documento">
+                            <button class="btn btn-outline-secondary" type="button" id="searchCustomer">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre Completo / Razón Social</label>
+                        <input type="text" id="customerName" class="form-control"
+                               placeholder="Nombre del cliente">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email (Opcional)</label>
+                        <input type="email" id="customerEmail" class="form-control"
+                               placeholder="email@ejemplo.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Teléfono (Opcional)</label>
+                        <input type="text" id="customerPhone" class="form-control"
+                               placeholder="999 999 999">
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2">
+                <button class="btn btn-primary btn-lg" id="btnFinalize" {% if rus_control.is_blocked %}disabled{% endif %}>
+                    <i class="bi bi-check-circle"></i> Finalizar Venta
+                </button>
+                <button class="btn btn-outline-danger" id="btnClear">
+                    <i class="bi bi-x-circle"></i> Limpiar Todo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Estado de la aplicación
+const app = {
+    cart: [],
+    customer: null,
+    rusLimit: {{ rus_control.remaining_amount() }},
+    isBlocked: {{ 'true' if rus_control.is_blocked else 'false' }}
+};
+
+// Búsqueda de productos
+let productSearchTimeout;
+document.getElementById('productSearch').addEventListener('input', function(e) {
+    clearTimeout(productSearchTimeout);
+    const query = e.target.value.trim();
+
+    if (query.length < 2) {
+        document.getElementById('productResults').style.display = 'none';
+        return;
+    }
+
+    productSearchTimeout = setTimeout(() => {
+        fetch(`/pos/search-products?q=${encodeURIComponent(query)}`)
+            .then(res => res.json())
+            .then(products => {
+                displayProductResults(products);
+            });
+    }, 300);
+});
+
+function displayProductResults(products) {
+    const resultsDiv = document.getElementById('productResults');
+
+    if (products.length === 0) {
+        resultsDiv.style.display = 'none';
+        return;
+    }
+
+    resultsDiv.innerHTML = products.map(product => `
+        <a href="#" class="list-group-item list-group-item-action" onclick="addToCart(${product.id}, '${product.name}', ${product.price}); return false;">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <strong>${product.name}</strong><br>
+                    <small class="text-muted">SKU: ${product.sku || 'N/A'}</small>
+                </div>
+                <div class="text-end">
+                    <strong class="text-primary">S/ ${product.price.toFixed(2)}</strong><br>
+                    <small class="text-muted">Stock: ${product.stock || 'N/A'}</small>
+                </div>
+            </div>
+        </a>
+    `).join('');
+
+    resultsDiv.style.display = 'block';
+}
+
+function addToCart(productId, name, price) {
+    // Verificar si ya está en el carrito
+    const existingItem = app.cart.find(item => item.product_id === productId);
+
+    if (existingItem) {
+        existingItem.quantity++;
+    } else {
+        app.cart.push({
+            product_id: productId,
+            name: name,
+            price: price,
+            quantity: 1
+        });
+    }
+
+    updateCart();
+    document.getElementById('productSearch').value = '';
+    document.getElementById('productResults').style.display = 'none';
+}
+
+function removeFromCart(index) {
+    app.cart.splice(index, 1);
+    updateCart();
+}
+
+function updateQuantity(index, delta) {
+    app.cart[index].quantity += delta;
+
+    if (app.cart[index].quantity <= 0) {
+        removeFromCart(index);
+    } else {
+        updateCart();
+    }
+}
+
+function updateCart() {
+    const cartDiv = document.getElementById('cartItems');
+    const cartCount = document.getElementById('cartCount');
+
+    if (app.cart.length === 0) {
+        cartDiv.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-cart-x" style="font-size: 3rem;"></i>
+                <p>El carrito está vacío</p>
+            </div>
+        `;
+        cartCount.textContent = '0';
+    } else {
+        cartDiv.innerHTML = app.cart.map((item, index) => `
+            <div class="card mb-2">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <strong>${item.name}</strong><br>
+                            <small class="text-muted">S/ ${item.price.toFixed(2)} c/u</small>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, -1)">
+                                <i class="bi bi-dash"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary" disabled>${item.quantity}</button>
+                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, 1)">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                        </div>
+                        <div class="ms-3">
+                            <strong class="text-primary">S/ ${(item.price * item.quantity).toFixed(2)}</strong>
+                        </div>
+                        <button class="btn btn-sm btn-danger ms-2" onclick="removeFromCart(${index})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        cartCount.textContent = app.cart.length;
+    }
+
+    updateTotals();
+}
+
+function updateTotals() {
+    const subtotal = app.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const tax = subtotal * 0.18;
+    const total = subtotal + tax;
+
+    document.getElementById('subtotalDisplay').textContent = `S/ ${subtotal.toFixed(2)}`;
+    document.getElementById('taxDisplay').textContent = `S/ ${tax.toFixed(2)}`;
+    document.getElementById('totalDisplay').textContent = `S/ ${total.toFixed(2)}`;
+
+    // Verificar límite RUS
+    if (total > app.rusLimit) {
+        document.getElementById('totalDisplay').classList.add('text-danger');
+        document.getElementById('btnFinalize').disabled = true;
+    } else {
+        document.getElementById('totalDisplay').classList.remove('text-danger');
+        document.getElementById('btnFinalize').disabled = app.isBlocked;
+    }
+}
+
+// Finalizar venta
+document.getElementById('btnFinalize').addEventListener('click', function() {
+    if (app.cart.length === 0) {
+        alert('El carrito está vacío');
+        return;
+    }
+
+    const documentNumber = document.getElementById('documentNumber').value.trim();
+    const customerName = document.getElementById('customerName').value.trim();
+
+    if (!documentNumber || !customerName) {
+        alert('Por favor complete los datos del cliente');
+        return;
+    }
+
+    const saleData = {
+        customer: {
+            document_type: document.getElementById('documentType').value,
+            document_number: documentNumber,
+            full_name: customerName,
+            email: document.getElementById('customerEmail').value.trim(),
+            phone: document.getElementById('customerPhone').value.trim()
+        },
+        items: app.cart
+    };
+
+    document.getElementById('btnFinalize').disabled = true;
+    document.getElementById('btnFinalize').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+    fetch('/pos/create-sale', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(saleData)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            alert(`Venta registrada exitosamente!\n\nComprobante: ${data.correlative}\nTotal: S/ ${data.total.toFixed(2)}`);
+            clearAll();
+            location.reload();
+        }
+    })
+    .catch(error => {
+        alert('Error al procesar la venta: ' + error);
+    })
+    .finally(() => {
+        document.getElementById('btnFinalize').disabled = false;
+        document.getElementById('btnFinalize').innerHTML = '<i class="bi bi-check-circle"></i> Finalizar Venta';
+    });
+});
+
+// Limpiar todo
+document.getElementById('btnClear').addEventListener('click', function() {
+    if (confirm('¿Está seguro de limpiar todo?')) {
+        clearAll();
+    }
+});
+
+function clearAll() {
+    app.cart = [];
+    updateCart();
+    document.getElementById('documentNumber').value = '';
+    document.getElementById('customerName').value = '';
+    document.getElementById('customerEmail').value = '';
+    document.getElementById('customerPhone').value = '';
+    document.getElementById('productSearch').value = '';
+}
+
+// Buscar cliente
+document.getElementById('searchCustomer').addEventListener('click', function() {
+    const query = document.getElementById('documentNumber').value.trim();
+
+    if (query.length < 3) {
+        alert('Ingrese al menos 3 caracteres para buscar');
+        return;
+    }
+
+    fetch(`/pos/search-customers?q=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(customers => {
+            if (customers.length > 0) {
+                const customer = customers[0];
+                document.getElementById('customerName').value = customer.full_name;
+                document.getElementById('customerEmail').value = customer.email || '';
+                document.getElementById('customerPhone').value = customer.phone || '';
+            }
+        });
+});
+</script>
+{% endblock %}
