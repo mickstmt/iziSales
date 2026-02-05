@@ -21,8 +21,9 @@ def index():
 
     # Total de ventas del día
     today_sales = Sale.query.filter(
-        db.func.date(Sale.created_at) == today,
-        Sale.status != 'cancelled'
+        db.func.date(Sale.created_at) == today
+    ).filter(
+        Sale.is_cancelled == False
     ).count()
 
     # Control RUS del mes actual
