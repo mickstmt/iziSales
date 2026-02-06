@@ -17,6 +17,7 @@ class Product(db.Model):
     description = db.Column(db.Text)
     price = db.Column(db.Numeric(10, 2), nullable=False)
     stock_quantity = db.Column(db.Integer, default=0)
+    image_url = db.Column(db.String(500))  # URL de la imagen del producto
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     last_sync = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -37,7 +38,9 @@ class Product(db.Model):
             'name': self.name,
             'description': self.description,
             'price': float(self.price),
+            'stock': self.stock_quantity,  # Alias para compatibilidad con frontend
             'stock_quantity': self.stock_quantity,
+            'image_url': self.image_url,
             'is_active': self.is_active,
             'last_sync': self.last_sync.isoformat(),
             'created_at': self.created_at.isoformat()
@@ -69,5 +72,13 @@ class Product(db.Model):
         self.price = float(woo_data.get('price', 0))
         self.stock_quantity = woo_data.get('stock_quantity', 0)
         self.is_active = woo_data.get('status') == 'publish'
+        
+        # Actualizar imagen
+        images = woo_data.get('images', [])
+        if images:
+            self.image_url = images[0].get('src', self.image_url)
+        elif woo_data.get('image'): # Para variaciones
+            self.image_url = woo_data.get('image').get('src', self.image_url)
+            
         self.last_sync = datetime.utcnow()
         db.session.commit()

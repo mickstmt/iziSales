@@ -207,6 +207,14 @@ def register_blueprints(app):
     from app.routes.pos import pos_bp
     app.register_blueprint(pos_bp)
 
+    # Blueprint de clientes
+    from app.routes.customers import customers_bp
+    app.register_blueprint(customers_bp)
+
+    # Blueprint de usuarios
+    from app.routes.users import users_bp
+    app.register_blueprint(users_bp)
+
     # Blueprint de API
     from app.routes.api import api_bp
     app.register_blueprint(api_bp)
@@ -214,6 +222,10 @@ def register_blueprints(app):
     # Blueprint de reportes
     from app.routes.reports import reports_bp
     app.register_blueprint(reports_bp)
+
+    # Blueprint de ventas
+    from app.routes.sales import sales_bp
+    app.register_blueprint(sales_bp)
 
     # Blueprint de health check
     from app.routes.health import health_bp

@@ -1,0 +1,219 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Clientes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="bi bi-people"></i> Clientes</h2>
+        <p class="text-muted">Total: {{ total }} cliente{{ 's' if total != 1 else '' }}</p>
+    </div>
+    <a href="{{ url_for('customers.create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nuevo Cliente
+    </a>
+</div>
+
+<!-- Buscador -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('customers.index') }}" id="searchForm">
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input
+                    type="text"
+                    class="form-control"
+                    id="searchInput"
+                    name="search"
+                    placeholder="Buscar por documento, nombre o email... (mínimo 3 caracteres)"
+                    value="{{ search }}"
+                    autocomplete="off"
+                >
+                <button class="btn btn-primary" type="submit">Buscar</button>
+                {% if search %}
+                <a href="{{ url_for('customers.index') }}" class="btn btn-secondary" id="btnClearSearch">Limpiar</a>
+                {% endif %}
+            </div>
+            <div class="form-text mt-2">
+                <i class="bi bi-info-circle"></i> La búsqueda se activa automáticamente al escribir 3 o más caracteres
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de clientes -->
+<div class="card">
+    <div class="card-body">
+        {% if customers %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Documento</th>
+                        <th>Nombre</th>
+                        <th>Email</th>
+                        <th>Teléfono</th>
+                        <th>Tipo</th>
+                        <th>Ventas</th>
+                        <th>Registrado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for customer in customers %}
+                    <tr>
+                        <td>
+                            <strong>{{ customer.document_type }}</strong><br>
+                            <small class="text-muted">{{ customer.document_number }}</small>
+                        </td>
+                        <td>{{ customer.name }}</td>
+                        <td>
+                            {% if customer.email %}
+                                <a href="mailto:{{ customer.email }}">{{ customer.email }}</a>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if customer.phone %}
+                                {{ customer.phone }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if customer.is_business %}
+                                <span class="badge bg-info">Empresa</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Persona</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">{{ customer.sales.count() }}</span>
+                        </td>
+                        <td>
+                            <small class="text-muted">{{ customer.created_at.strftime('%d/%m/%Y') }}</small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('customers.view', customer_id=customer.id) }}"
+                                   class="btn btn-outline-primary"
+                                   title="Ver detalles">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ url_for('customers.edit', customer_id=customer.id) }}"
+                                   class="btn btn-outline-secondary"
+                                   title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        {% if pagination.pages > 1 %}
+        <nav aria-label="Navegación de clientes">
+            <ul class="pagination justify-content-center mt-4">
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('customers.index', page=pagination.prev_num, search=search) }}">
+                        Anterior
+                    </a>
+                </li>
+
+                {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('customers.index', page=page_num, search=search) }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('customers.index', page=pagination.next_num, search=search) }}">
+                        Siguiente
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-people" style="font-size: 4rem; color: #ccc;"></i>
+            <p class="text-muted mt-3">
+                {% if search %}
+                    No se encontraron clientes con "<strong>{{ search }}</strong>"
+                {% else %}
+                    No hay clientes registrados
+                {% endif %}
+            </p>
+            {% if not search %}
+            <a href="{{ url_for('customers.create') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Crear Primer Cliente
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Búsqueda automática con debounce
+const searchInput = document.getElementById('searchInput');
+const searchForm = document.getElementById('searchForm');
+let searchTimeout = null;
+
+if (searchInput) {
+    searchInput.addEventListener('input', function(e) {
+        const query = e.target.value.trim();
+
+        // Limpiar timeout anterior
+        clearTimeout(searchTimeout);
+
+        // Si tiene 3 o más caracteres, buscar automáticamente después de 500ms
+        if (query.length >= 3) {
+            searchTimeout = setTimeout(() => {
+                searchForm.submit();
+            }, 500);
+        }
+
+        // Si está vacío y había búsqueda, limpiar
+        if (query.length === 0 && window.location.search.includes('search=')) {
+            window.location.href = '{{ url_for("customers.index") }}';
+        }
+    });
+
+    // Submit inmediato al presionar Enter
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            clearTimeout(searchTimeout);
+            searchForm.submit();
+        }
+    });
+}
+
+// Botón limpiar
+const btnClearSearch = document.getElementById('btnClearSearch');
+if (btnClearSearch) {
+    btnClearSearch.addEventListener('click', function(e) {
+        e.preventDefault();
+        searchInput.value = '';
+        window.location.href = '{{ url_for("customers.index") }}';
+    });
+}
+
+// Focus en el input al cargar la página
+if (searchInput && searchInput.value.length === 0) {
+    searchInput.focus();
+}
+</script>
+{% endblock %}

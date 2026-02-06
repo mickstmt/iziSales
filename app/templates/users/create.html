@@ -1,0 +1,104 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Nuevo Usuario{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('users.index') }}">Usuarios</a></li>
+            <li class="breadcrumb-item active">Nuevo Usuario</li>
+        </ol>
+    </nav>
+    <h1 class="h3">Registrar Nuevo Usuario</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <form action="{{ url_for('users.create') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Nombre de Usuario</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                        <div class="form-text">Usado para el inicio de sesión.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="full_name" class="form-label">Nombre Completo</label>
+                        <input type="text" class="form-control" id="full_name" name="full_name" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Correo Electrónico</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Contraseña Temporal</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="password" name="password" required
+                                minlength="6">
+                            <button class="btn btn-outline-secondary" type="button"
+                                onclick="togglePasswordVisibility('password')">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">Mínimo 6 caracteres.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Rol del Sistema</label>
+                        <select class="form-select" id="role" name="role" required>
+                            <option value="seller" selected>Vendedor</option>
+                            <option value="admin">Administrador</option>
+                            <option value="viewer">Solo Lectura</option>
+                        </select>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{{ url_for('users.index') }}" class="btn btn-light me-md-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary">Registrar Usuario</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light border-0">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle text-primary"></i> Información de Roles</h5>
+                <ul class="list-unstyled mb-0 mt-3 small">
+                    <li class="mb-3">
+                        <strong>Administrador:</strong> Acceso total al sistema, gestión de usuarios, productos, ventas
+                        y reportes.
+                    </li>
+                    <li class="mb-3">
+                        <strong>Vendedor:</strong> Acceso al POS, registro de ventas y visualización de productos.
+                    </li>
+                    <li>
+                        <strong>Solo Lectura:</strong> Acceso a ver reportes y ventas, sin permisos para modificar o
+                        vender.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function togglePasswordVisibility(inputId) {
+        const input = document.getElementById(inputId);
+        const icon = event.currentTarget.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'bi bi-eye-slash';
+        } else {
+            input.type = 'password';
+            icon.className = 'bi bi-eye';
+        }
+    }
+</script>
+{% endblock %}

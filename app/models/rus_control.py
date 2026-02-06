@@ -37,14 +37,23 @@ class RUSControl(db.Model):
             limit_cat1: Límite categoría 1 (S/ 5,000)
             limit_cat2: Límite categoría 2 (S/ 8,000)
         """
+        from decimal import Decimal
+        # Asegurar que amount sea Decimal
+        if not isinstance(amount, Decimal):
+            amount = Decimal(str(amount))
+
         self.total_invoiced += amount
         self.transaction_count += 1
 
+        # Convertir límites a Decimal para comparación segura
+        d_limit_cat1 = Decimal(str(limit_cat1))
+        d_limit_cat2 = Decimal(str(limit_cat2))
+
         # Actualizar nivel de alerta
-        if self.total_invoiced >= limit_cat2:
+        if self.total_invoiced >= d_limit_cat2:
             self.alert_level = 'RED'
             self.is_blocked = True
-        elif self.total_invoiced >= limit_cat1:
+        elif self.total_invoiced >= d_limit_cat1:
             self.alert_level = 'YELLOW'
         else:
             self.alert_level = 'GREEN'
@@ -54,16 +63,22 @@ class RUSControl(db.Model):
 
     def can_add_amount(self, amount, limit=8000.00):
         """Verificar si se puede agregar un monto sin superar el límite"""
-        projected = float(self.total_invoiced) + amount
-        return projected <= limit
+        from decimal import Decimal
+        d_amount = Decimal(str(amount))
+        d_limit = Decimal(str(limit))
+        projected = self.total_invoiced + d_amount
+        return projected <= d_limit
 
     def remaining_amount(self, limit=8000.00):
         """Cantidad restante antes de llegar al límite"""
-        return limit - float(self.total_invoiced)
+        from decimal import Decimal
+        return float(Decimal(str(limit)) - self.total_invoiced)
 
     def usage_percentage(self, limit=8000.00):
         """Porcentaje de uso del límite"""
-        return (float(self.total_invoiced) / limit) * 100
+        from decimal import Decimal
+        total = float(self.total_invoiced)
+        return (total / float(limit)) * 100
 
     def __repr__(self):
         return f'<RUSControl {self.year}-{self.month}: S/ {self.total_invoiced}>'

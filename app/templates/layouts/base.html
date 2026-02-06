@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,37 +22,69 @@
             --danger-color: #ef4444;
             --warning-color: #f59e0b;
         }
+
         body {
             min-height: 100vh;
             background-color: #f8fafc;
         }
+
         .navbar-brand {
             font-weight: 700;
             font-size: 1.5rem;
         }
+
         .sidebar {
             min-height: calc(100vh - 56px);
             background-color: #fff;
             border-right: 1px solid #e2e8f0;
         }
+
+        .sidebar .nav-link {
+            color: #64748b;
+            padding: 0.75rem 1rem;
+            margin: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .sidebar .nav-link:hover {
+            background-color: #f1f5f9;
+            color: var(--primary-color);
+        }
+
+        .sidebar .nav-link.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .sidebar .nav-link i {
+            width: 20px;
+            text-align: center;
+            margin-right: 0.5rem;
+        }
+
         .main-content {
             padding: 2rem;
         }
+
         .card {
             border: none;
             box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
             border-radius: 0.5rem;
         }
+
         .btn-primary {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
         }
+
         .alert {
             border-radius: 0.5rem;
             border: none;
         }
     </style>
 </head>
+
 <body>
     {% block navbar %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -67,17 +100,19 @@
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
-                           data-bs-toggle="dropdown" aria-expanded="false">
+                            data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-person-circle"></i> {{ current_user.username }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             <li><a class="dropdown-item" href="/profile">
-                                <i class="bi bi-person"></i> Mi Perfil
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
+                                    <i class="bi bi-person"></i> Mi Perfil
+                                </a></li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
                             <li><a class="dropdown-item" href="/auth/logout">
-                                <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
-                            </a></li>
+                                    <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                                </a></li>
                         </ul>
                     </li>
                 </ul>
@@ -96,42 +131,55 @@
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="/dashboard">
+                            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('dashboard') %}active{% endif %}"
+                                href="/dashboard">
                                 <i class="bi bi-speedometer2"></i> Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/pos">
+                            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('pos') %}active{% endif %}"
+                                href="/pos">
                                 <i class="bi bi-cash-register"></i> Punto de Venta
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/sales">
+                            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('sales') %}active{% endif %}"
+                                href="/sales">
                                 <i class="bi bi-receipt-cutoff"></i> Ventas
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/products">
+                            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('products') %}active{% endif %}"
+                                href="/products">
                                 <i class="bi bi-box-seam"></i> Productos
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/customers">
+                            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('customers') %}active{% endif %}"
+                                href="/customers">
                                 <i class="bi bi-people"></i> Clientes
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/reports">
+                            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('reports') %}active{% endif %}"
+                                href="/reports">
                                 <i class="bi bi-graph-up"></i> Reportes
                             </a>
                         </li>
                         {% if current_user.role == 'admin' %}
                         <li class="nav-item">
-                            <hr>
+                            <hr class="my-3">
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/admin">
-                                <i class="bi bi-gear"></i> Administración
+                            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin') %}active{% endif %}"
+                                href="/admin">
+                                <i class="bi bi-gear"></i> Configuración
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint and request.endpoint.startswith('users') %}active{% endif %}"
+                                href="{{ url_for('users.index') }}">
+                                <i class="bi bi-person-gear"></i> Usuarios
                             </a>
                         </li>
                         {% endif %}
@@ -140,22 +188,23 @@
             </nav>
             {% endblock %}
             <main class="col-md-10 ms-sm-auto main-content">
-            {% else %}
-            <main class="col-12 main-content">
-            {% endif %}
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                        {% endfor %}
+                {% else %}
+                <main class="col-12 main-content">
                     {% endif %}
-                {% endwith %}
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
+                        role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                    {% endwith %}
 
-                {% block content %}{% endblock %}
-            </main>
+                    {% block content %}{% endblock %}
+                </main>
         </div>
     </div>
     {% endblock %}
@@ -165,4 +214,5 @@
 
     {% block extra_js %}{% endblock %}
 </body>
+
 </html>

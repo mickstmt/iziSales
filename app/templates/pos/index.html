@@ -3,7 +3,8 @@
 {% block title %}Punto de Venta{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid" id="posContainer" data-rus-limit="{{ rus_control.remaining_amount() }}"
+    data-is-blocked="{{ 'true' if rus_control.is_blocked else 'false' }}">
     <div class="row mb-3">
         <div class="col">
             <h1 class="h3">
@@ -11,7 +12,8 @@
             </h1>
         </div>
         <div class="col-auto">
-            <div class="alert alert-{% if rus_control.alert_level == 'RED' %}danger{% elif rus_control.alert_level == 'YELLOW' %}warning{% else %}success{% endif %} mb-0 py-2">
+            <div
+                class="alert alert-{% if rus_control.alert_level == 'RED' %}danger{% elif rus_control.alert_level == 'YELLOW' %}warning{% else %}success{% endif %} mb-0 py-2">
                 <strong>RUS:</strong> S/ {{ "%.2f"|format(rus_control.total_invoiced) }} / S/ 8,000
                 ({{ "%.1f"|format(rus_control.usage_percentage()) }}%)
             </div>
@@ -32,9 +34,18 @@
                 <div class="card-body">
                     <div class="mb-3">
                         <label class="form-label">Buscar Producto</label>
-                        <input type="text" id="productSearch" class="form-control form-control-lg"
-                               placeholder="Buscar por nombre o SKU..." autocomplete="off">
-                        <div id="productResults" class="list-group mt-2" style="display: none;"></div>
+                        <div class="position-relative">
+                            <input type="text" id="productSearch" class="form-control form-control-lg"
+                                placeholder="Buscar por nombre o SKU..." autocomplete="off">
+                            <button type="button" id="clearSearchBtn"
+                                class="btn btn-link position-absolute top-50 end-0 translate-middle-y pe-3"
+                                style="display: none; z-index: 10; text-decoration: none;">
+                                <i class="bi bi-x-circle-fill text-secondary" style="font-size: 1.2rem;"></i>
+                            </button>
+                        </div>
+                        <div id="productResults" class="list-group mt-2"
+                            style="display: none; max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -102,35 +113,39 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Número de Documento</label>
+                        <label class="form-label">
+                            Número de Documento
+                            <span class="badge bg-info" id="apiSource" style="display: none;">
+                                <i class="bi bi-cloud-check"></i> <span id="apiSourceText">RENIEC</span>
+                            </span>
+                        </label>
                         <div class="input-group">
                             <input type="text" id="documentNumber" class="form-control"
-                                   placeholder="Ingrese documento">
+                                placeholder="Ingrese DNI (8) o RUC (11)">
                             <button class="btn btn-outline-secondary" type="button" id="searchCustomer">
                                 <i class="bi bi-search"></i>
                             </button>
                         </div>
+                        <div id="customerSearchStatus" class="mt-2" style="display: none;"></div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Nombre Completo / Razón Social</label>
-                        <input type="text" id="customerName" class="form-control"
-                               placeholder="Nombre del cliente">
+                        <input type="text" id="customerName" class="form-control" placeholder="Nombre del cliente">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Email (Opcional)</label>
-                        <input type="email" id="customerEmail" class="form-control"
-                               placeholder="email@ejemplo.com">
+                        <input type="email" id="customerEmail" class="form-control" placeholder="email@ejemplo.com">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Teléfono (Opcional)</label>
-                        <input type="text" id="customerPhone" class="form-control"
-                               placeholder="999 999 999">
+                        <input type="text" id="customerPhone" class="form-control" placeholder="999 999 999">
                     </div>
                 </div>
             </div>
 
             <div class="d-grid gap-2">
-                <button class="btn btn-primary btn-lg" id="btnFinalize" {% if rus_control.is_blocked %}disabled{% endif %}>
+                <button class="btn btn-primary btn-lg" id="btnFinalize" {% if rus_control.is_blocked %}disabled{% endif
+                    %}>
                     <i class="bi bi-check-circle"></i> Finalizar Venta
                 </button>
                 <button class="btn btn-outline-danger" id="btnClear">
@@ -140,256 +155,577 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Confirmación de Venta con SUNAT -->
+<div class="modal fade" id="saleSuccessModal" tabindex="-1" aria-labelledby="saleSuccessModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="saleSuccessModalLabel">
+                    <i class="bi bi-check-circle"></i> Venta Registrada
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                </div>
+
+                <div class="alert alert-success">
+                    <strong>Boleta N°:</strong> <span id="saleCorrelative"></span><br>
+                    <strong>Total:</strong> S/ <span id="saleTotal"></span>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-cloud-upload"></i>
+                    <strong>¿Desea enviar a SUNAT ahora?</strong>
+                    <p class="mb-0 small">La boleta será validada y registrada en SUNAT</p>
+                </div>
+
+                <div id="sunatProgress" style="display: none;">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Enviando...</span>
+                        </div>
+                        <p class="mt-2">Enviando a SUNAT...</p>
+                    </div>
+                </div>
+
+                <div id="sunatResult" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCloseSaleModal">
+                    Enviar luego
+                </button>
+                <button type="button" class="btn btn-primary" id="btnSendToSunat">
+                    <i class="bi bi-send"></i> Enviar a SUNAT
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Estado de la aplicación
-const app = {
-    cart: [],
-    customer: null,
-    rusLimit: {{ rus_control.remaining_amount() }},
-    isBlocked: {{ 'true' if rus_control.is_blocked else 'false' }}
-};
+    const container = document.getElementById('posContainer');
+    const app = {
+        cart: [],
+        customer: null,
+        rusLimit: parseFloat(container.dataset.rusLimit),
+        isBlocked: container.dataset.isBlocked === 'true'
+    };
 
-// Búsqueda de productos
-let productSearchTimeout;
-document.getElementById('productSearch').addEventListener('input', function(e) {
-    clearTimeout(productSearchTimeout);
-    const query = e.target.value.trim();
+    // Búsqueda de productos
+    let productSearchTimeout;
+    const productSearchInput = document.getElementById('productSearch');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
 
-    if (query.length < 2) {
+    productSearchInput.addEventListener('input', function (e) {
+        clearTimeout(productSearchTimeout);
+        const query = e.target.value.trim();
+
+        // Mostrar/ocultar botón de limpiar
+        if (e.target.value.length > 0) {
+            clearSearchBtn.style.display = 'block';
+        } else {
+            clearSearchBtn.style.display = 'none';
+        }
+
+        if (query.length < 2) { document.getElementById('productResults').style.display = 'none'; return; }
+        productSearchTimeout = setTimeout(() => {
+            fetch(`/pos/search-products?q=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(products => {
+                    displayProductResults(products);
+                });
+        }, 300);
+    });
+
+    // Limpiar búsqueda de productos
+    clearSearchBtn.addEventListener('click', function () {
+        productSearchInput.value = '';
+        clearSearchBtn.style.display = 'none';
         document.getElementById('productResults').style.display = 'none';
-        return;
-    }
+        productSearchInput.focus();
+    });
 
-    productSearchTimeout = setTimeout(() => {
-        fetch(`/pos/search-products?q=${encodeURIComponent(query)}`)
-            .then(res => res.json())
-            .then(products => {
-                displayProductResults(products);
-            });
-    }, 300);
-});
+    function displayProductResults(products) {
+        const resultsDiv = document.getElementById('productResults');
 
-function displayProductResults(products) {
-    const resultsDiv = document.getElementById('productResults');
+        if (products.length === 0) {
+            resultsDiv.style.display = 'none';
+            return;
+        }
 
-    if (products.length === 0) {
-        resultsDiv.style.display = 'none';
-        return;
-    }
-
-    resultsDiv.innerHTML = products.map(product => `
-        <a href="#" class="list-group-item list-group-item-action" onclick="addToCart(${product.id}, '${product.name}', ${product.price}); return false;">
-            <div class="d-flex justify-content-between">
+        resultsDiv.innerHTML = products.map(product => `
+    <a href="#" class="list-group-item list-group-item-action"
+        onclick="addToCart(${product.id}, '${product.name}', ${product.price}, '${product.image_url || ''}'); return false;">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center flex-grow-1">
+                ${product.image_url ? `
+                <img src="${product.image_url}" alt="${product.name}"
+                    style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin-right: 12px;">
+                ` : `
+                <div
+                    style="width: 50px; height: 50px; background: #e9ecef; border-radius: 4px; margin-right: 12px; display: flex; align-items: center; justify-content: center;">
+                    <i class="bi bi-image text-muted"></i>
+                </div>
+                `}
                 <div>
                     <strong>${product.name}</strong><br>
                     <small class="text-muted">SKU: ${product.sku || 'N/A'}</small>
                 </div>
-                <div class="text-end">
-                    <strong class="text-primary">S/ ${product.price.toFixed(2)}</strong><br>
-                    <small class="text-muted">Stock: ${product.stock || 'N/A'}</small>
-                </div>
             </div>
-        </a>
+            <div class="text-end">
+                <strong class="text-primary">S/ ${product.price.toFixed(2)}</strong><br>
+                <small class="text-muted">Stock: ${product.stock || 'N/A'}</small>
+            </div>
+        </div>
+    </a>
     `).join('');
 
-    resultsDiv.style.display = 'block';
-}
-
-function addToCart(productId, name, price) {
-    // Verificar si ya está en el carrito
-    const existingItem = app.cart.find(item => item.product_id === productId);
-
-    if (existingItem) {
-        existingItem.quantity++;
-    } else {
-        app.cart.push({
-            product_id: productId,
-            name: name,
-            price: price,
-            quantity: 1
-        });
+        resultsDiv.style.display = 'block';
     }
 
-    updateCart();
-    document.getElementById('productSearch').value = '';
-    document.getElementById('productResults').style.display = 'none';
-}
+    function addToCart(productId, name, price, imageUrl = '') {
+        // Verificar si ya está en el carrito
+        const existingItem = app.cart.find(item => item.product_id === productId);
 
-function removeFromCart(index) {
-    app.cart.splice(index, 1);
-    updateCart();
-}
+        if (existingItem) {
+            existingItem.quantity++;
+        } else {
+            app.cart.push({
+                product_id: productId,
+                name: name,
+                price: price,
+                image_url: imageUrl,
+                quantity: 1
+            });
+        }
 
-function updateQuantity(index, delta) {
-    app.cart[index].quantity += delta;
+        updateCart();
+        document.getElementById('productSearch').value = '';
+        document.getElementById('productResults').style.display = 'none';
+        clearSearchBtn.style.display = 'none';
+    }
 
-    if (app.cart[index].quantity <= 0) {
-        removeFromCart(index);
-    } else {
+    function removeFromCart(index) {
+        app.cart.splice(index, 1);
         updateCart();
     }
-}
 
-function updateCart() {
-    const cartDiv = document.getElementById('cartItems');
-    const cartCount = document.getElementById('cartCount');
+    function updateQuantity(index, delta) {
+        app.cart[index].quantity += delta;
 
-    if (app.cart.length === 0) {
-        cartDiv.innerHTML = `
-            <div class="text-center text-muted py-4">
-                <i class="bi bi-cart-x" style="font-size: 3rem;"></i>
-                <p>El carrito está vacío</p>
-            </div>
+        if (app.cart[index].quantity <= 0) { removeFromCart(index); } else { updateCart(); }
+    } function updateCart() {
+        const
+            cartDiv = document.getElementById('cartItems'); const cartCount = document.getElementById('cartCount'); if
+            (app.cart.length === 0) {
+            cartDiv.innerHTML = ` <div class="text-center text-muted py-4">
+        <i class="bi bi-cart-x" style="font-size: 3rem;"></i>
+        <p>El carrito está vacío</p>
+        </div>
         `;
-        cartCount.textContent = '0';
-    } else {
-        cartDiv.innerHTML = app.cart.map((item, index) => `
-            <div class="card mb-2">
-                <div class="card-body py-2">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="flex-grow-1">
-                            <strong>${item.name}</strong><br>
-                            <small class="text-muted">S/ ${item.price.toFixed(2)} c/u</small>
-                        </div>
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, -1)">
-                                <i class="bi bi-dash"></i>
-                            </button>
-                            <button class="btn btn-outline-secondary" disabled>${item.quantity}</button>
-                            <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, 1)">
-                                <i class="bi bi-plus"></i>
-                            </button>
-                        </div>
-                        <div class="ms-3">
-                            <strong class="text-primary">S/ ${(item.price * item.quantity).toFixed(2)}</strong>
-                        </div>
-                        <button class="btn btn-sm btn-danger ms-2" onclick="removeFromCart(${index})">
-                            <i class="bi bi-trash"></i>
+            cartCount.textContent = '0';
+        } else {
+            cartDiv.innerHTML = app.cart.map((item, index) => `
+        <div class="card mb-2">
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    ${item.image_url ? `
+                    <img src="${item.image_url}" alt="${item.name}"
+                        style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 10px;">
+                    ` : ''}
+                    <div class="flex-grow-1">
+                        <strong>${item.name}</strong><br>
+                        <small class="text-muted">S/ ${item.price.toFixed(2)} c/u</small>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, -1)">
+                            <i class="bi bi-dash"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" disabled>${item.quantity}</button>
+                        <button class="btn btn-outline-secondary" onclick="updateQuantity(${index}, 1)">
+                            <i class="bi bi-plus"></i>
                         </button>
                     </div>
+                    <div class="ms-3">
+                        <strong class="text-primary">S/ ${(item.price * item.quantity).toFixed(2)}</strong>
+                    </div>
+                    <button class="btn btn-sm btn-danger ms-2" onclick="removeFromCart(${index})">
+                        <i class="bi bi-trash"></i>
+                    </button>
                 </div>
             </div>
+        </div>
         `).join('');
 
-        cartCount.textContent = app.cart.length;
-    }
-
-    updateTotals();
-}
-
-function updateTotals() {
-    const subtotal = app.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const tax = subtotal * 0.18;
-    const total = subtotal + tax;
-
-    document.getElementById('subtotalDisplay').textContent = `S/ ${subtotal.toFixed(2)}`;
-    document.getElementById('taxDisplay').textContent = `S/ ${tax.toFixed(2)}`;
-    document.getElementById('totalDisplay').textContent = `S/ ${total.toFixed(2)}`;
-
-    // Verificar límite RUS
-    if (total > app.rusLimit) {
-        document.getElementById('totalDisplay').classList.add('text-danger');
-        document.getElementById('btnFinalize').disabled = true;
-    } else {
-        document.getElementById('totalDisplay').classList.remove('text-danger');
-        document.getElementById('btnFinalize').disabled = app.isBlocked;
-    }
-}
-
-// Finalizar venta
-document.getElementById('btnFinalize').addEventListener('click', function() {
-    if (app.cart.length === 0) {
-        alert('El carrito está vacío');
-        return;
-    }
-
-    const documentNumber = document.getElementById('documentNumber').value.trim();
-    const customerName = document.getElementById('customerName').value.trim();
-
-    if (!documentNumber || !customerName) {
-        alert('Por favor complete los datos del cliente');
-        return;
-    }
-
-    const saleData = {
-        customer: {
-            document_type: document.getElementById('documentType').value,
-            document_number: documentNumber,
-            full_name: customerName,
-            email: document.getElementById('customerEmail').value.trim(),
-            phone: document.getElementById('customerPhone').value.trim()
-        },
-        items: app.cart
-    };
-
-    document.getElementById('btnFinalize').disabled = true;
-    document.getElementById('btnFinalize').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
-
-    fetch('/pos/create-sale', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(saleData)
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.error) {
-            alert('Error: ' + data.error);
-        } else {
-            alert(`Venta registrada exitosamente!\n\nComprobante: ${data.correlative}\nTotal: S/ ${data.total.toFixed(2)}`);
-            clearAll();
-            location.reload();
+            cartCount.textContent = app.cart.length;
         }
-    })
-    .catch(error => {
-        alert('Error al procesar la venta: ' + error);
-    })
-    .finally(() => {
-        document.getElementById('btnFinalize').disabled = false;
-        document.getElementById('btnFinalize').innerHTML = '<i class="bi bi-check-circle"></i> Finalizar Venta';
+
+        updateTotals();
+    }
+
+    function updateTotals() {
+        // Precio ya incluye IGV
+        const total = app.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const subtotal = total / 1.18; // Subtotal sin IGV
+        const tax = total - subtotal; // IGV 18%
+
+        document.getElementById('subtotalDisplay').textContent = `S/ ${subtotal.toFixed(2)}`;
+        document.getElementById('taxDisplay').textContent = `S/ ${tax.toFixed(2)}`;
+        document.getElementById('totalDisplay').textContent = `S/ ${total.toFixed(2)}`;
+
+        // Verificar límite RUS
+        if (total > app.rusLimit) {
+            document.getElementById('totalDisplay').classList.add('text-danger');
+            document.getElementById('btnFinalize').disabled = true;
+        } else {
+            document.getElementById('totalDisplay').classList.remove('text-danger');
+            document.getElementById('btnFinalize').disabled = app.isBlocked;
+        }
+    }
+
+    // Finalizar venta
+    document.getElementById('btnFinalize').addEventListener('click', function () {
+        if (app.cart.length === 0) {
+            alert('El carrito está vacío');
+            return;
+        }
+
+        const documentNumber = document.getElementById('documentNumber').value.trim();
+        const customerName = document.getElementById('customerName').value.trim();
+
+        if (!documentNumber || !customerName) {
+            alert('Por favor complete los datos del cliente');
+            return;
+        }
+
+        const saleData = {
+            customer: {
+                document_type: document.getElementById('documentType').value,
+                document_number: documentNumber,
+                full_name: customerName,
+                email: document.getElementById('customerEmail').value.trim(),
+                phone: document.getElementById('customerPhone').value.trim()
+            },
+            items: app.cart
+        };
+
+        document.getElementById('btnFinalize').disabled = true;
+        document.getElementById('btnFinalize').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+        fetch('/pos/create-sale', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(saleData)
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    // Guardar ID de venta para envío a SUNAT
+                    app.currentSaleId = data.sale_id;
+
+                    // Mostrar modal de confirmación
+                    document.getElementById('saleCorrelative').textContent = data.correlative;
+                    document.getElementById('saleTotal').textContent = data.total.toFixed(2);
+
+                    // Resetear estado del modal
+                    document.getElementById('sunatProgress').style.display = 'none';
+                    document.getElementById('sunatResult').style.display = 'none';
+                    document.getElementById('sunatResult').innerHTML = '';
+                    document.getElementById('btnSendToSunat').style.display = 'block';
+                    document.getElementById('btnCloseSaleModal').textContent = 'Enviar luego';
+
+                    // Mostrar modal
+                    const modal = new bootstrap.Modal(document.getElementById('saleSuccessModal'));
+                    modal.show();
+
+                    clearAll();
+                }
+            })
+            .catch(error => {
+                alert('Error al procesar la venta: ' + error);
+            })
+            .finally(() => {
+                document.getElementById('btnFinalize').disabled = false;
+                document.getElementById('btnFinalize').innerHTML = '<i class="bi bi-check-circle"></i> Finalizar Venta';
+            });
     });
-});
 
-// Limpiar todo
-document.getElementById('btnClear').addEventListener('click', function() {
-    if (confirm('¿Está seguro de limpiar todo?')) {
-        clearAll();
-    }
-});
+    // Limpiar todo
+    document.getElementById('btnClear').addEventListener('click', function () {
+        if (confirm('¿Está seguro de limpiar todo?')) {
+            clearAll();
+        }
+    });
 
-function clearAll() {
-    app.cart = [];
-    updateCart();
-    document.getElementById('documentNumber').value = '';
-    document.getElementById('customerName').value = '';
-    document.getElementById('customerEmail').value = '';
-    document.getElementById('customerPhone').value = '';
-    document.getElementById('productSearch').value = '';
-}
-
-// Buscar cliente
-document.getElementById('searchCustomer').addEventListener('click', function() {
-    const query = document.getElementById('documentNumber').value.trim();
-
-    if (query.length < 3) {
-        alert('Ingrese al menos 3 caracteres para buscar');
-        return;
+    function clearAll() {
+        app.cart = [];
+        updateCart();
+        document.getElementById('documentNumber').value = '';
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerEmail').value = '';
+        document.getElementById('customerPhone').value = '';
+        document.getElementById('productSearch').value = '';
     }
 
-    fetch(`/pos/search-customers?q=${encodeURIComponent(query)}`)
-        .then(res => res.json())
-        .then(customers => {
+    // Buscar cliente (local + RENIEC/SUNAT)
+    document.getElementById('searchCustomer').addEventListener('click', async function () {
+        const query = document.getElementById('documentNumber').value.trim();
+        const statusDiv = document.getElementById('customerSearchStatus');
+        const apiBadge = document.getElementById('apiSource');
+        const apiBadgeText = document.getElementById('apiSourceText');
+        const searchBtn = document.getElementById('searchCustomer');
+        const documentTypeSelect = document.getElementById('documentType');
+
+        if (!query) {
+            alert('Ingrese el número de documento');
+            return;
+        }
+
+        // Limpiar estado anterior
+        statusDiv.style.display = 'none';
+        apiBadge.style.display = 'none';
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerEmail').value = '';
+        document.getElementById('customerPhone').value = '';
+
+        // Deshabilitar botón
+        searchBtn.disabled = true;
+        searchBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        try {
+            // 1. Buscar en base de datos local
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<div class="alert alert-info mb-0 py-2"><i class="bi bi-search"></i> Buscando en clientes registrados...</div>';
+
+            const localResponse = await fetch(`/pos/search-customers?q=${encodeURIComponent(query)}`);
+            const customers = await localResponse.json();
+
             if (customers.length > 0) {
+                // Cliente encontrado localmente
                 const customer = customers[0];
-                document.getElementById('customerName').value = customer.full_name;
+                document.getElementById('customerName').value = customer.name;
                 document.getElementById('customerEmail').value = customer.email || '';
                 document.getElementById('customerPhone').value = customer.phone || '';
+
+                // Actualizar tipo de documento
+                documentTypeSelect.value = customer.document_type || 'DNI';
+
+                statusDiv.innerHTML = '<div class="alert alert-success mb-0 py-2"><i class="bi bi-check-circle"></i> Cliente encontrado en base de datos</div>';
+                setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+            } else {
+                // 2. No encontrado localmente, intentar con RENIEC/SUNAT
+                // Detectar tipo de documento automáticamente
+                let tipoDocumento = '';
+                if (query.length === 8 && /^\d+$/.test(query)) {
+                    tipoDocumento = 'DNI';
+                    documentTypeSelect.value = 'DNI';
+                } else if (query.length === 11 && /^\d+$/.test(query)) {
+                    tipoDocumento = 'RUC';
+                    documentTypeSelect.value = 'RUC';
+                } else {
+                    statusDiv.innerHTML = '<div class="alert alert-warning mb-0 py-2"><i class="bi bi-exclamation-triangle"></i> Cliente no registrado. Complete los datos manualmente.</div>';
+                    setTimeout(() => { statusDiv.style.display = 'none'; }, 5000);
+                    return;
+                }
+
+                // Consultar en RENIEC/SUNAT
+                statusDiv.innerHTML = `<div class="alert alert-info mb-0 py-2"><i class="bi bi-cloud-arrow-down"></i>
+            Consultando en ${tipoDocumento === 'DNI' ? 'RENIEC' : 'SUNAT'}...</div>`;
+
+                const apiResponse = await fetch(`/customers/api/consultar-documento?tipo=${tipoDocumento}&numero=${query}`);
+                const apiResult = await apiResponse.json();
+
+                if (apiResult.success) {
+                    // Datos encontrados en API externa
+                    document.getElementById('customerName').value = apiResult.data.nombre || '';
+
+                    if (apiResult.data.direccion) {
+                        // Si hay dirección (RUC), guardarla para la venta (aunque no se muestra en POS)
+                        app.customerAddress = apiResult.data.direccion;
+                    }
+
+                    // Mostrar badge y mensaje de éxito
+                    apiBadgeText.textContent = tipoDocumento === 'DNI' ? 'RENIEC' : 'SUNAT';
+                    apiBadge.style.display = 'inline-block';
+
+                    statusDiv.innerHTML = `<div class="alert alert-success mb-0 py-2">
+            <i class="bi bi-check-circle"></i> Datos encontrados en ${tipoDocumento === 'DNI' ? 'RENIEC' : 'SUNAT'}
+            ${apiResult.data.estado ? `<br><small>Estado: ${apiResult.data.estado} | Condición:
+                ${apiResult.data.condicion}</small>` : ''}
+        </div>`;
+
+                    // Auto-focus en email
+                    document.getElementById('customerEmail').focus();
+
+                    setTimeout(() => { statusDiv.style.display = 'none'; }, 5000);
+                } else {
+                    statusDiv.innerHTML = `<div class="alert alert-warning mb-0 py-2">
+            <i class="bi bi-exclamation-triangle"></i> ${apiResult.message || 'No se encontró información en ' +
+                        (tipoDocumento === 'DNI' ? 'RENIEC' : 'SUNAT')}
+        </div>`;
+                    setTimeout(() => { statusDiv.style.display = 'none'; }, 5000);
+                }
             }
-        });
-});
+        } catch (error) {
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = `<div class="alert alert-danger mb-0 py-2">
+            <i class="bi bi-x-circle"></i> Error al buscar: ${error.message}
+        </div>`;
+            setTimeout(() => { statusDiv.style.display = 'none'; }, 5000);
+        } finally {
+            // Restaurar botón
+            searchBtn.disabled = false;
+            searchBtn.innerHTML = '<i class="bi bi-search"></i>';
+        }
+    });
+
+    // Limpiar badge al cambiar el número de documento
+    document.getElementById('documentNumber').addEventListener('input', function () {
+        document.getElementById('apiSource').style.display = 'none';
+        document.getElementById('customerSearchStatus').style.display = 'none';
+
+        // Detectar tipo de documento automáticamente al escribir
+        const query = this.value.trim();
+        const documentTypeSelect = document.getElementById('documentType');
+
+        if (query.length === 8 && /^\d+$/.test(query)) {
+            documentTypeSelect.value = 'DNI';
+        } else if (query.length === 11 && /^\d+$/.test(query)) {
+            documentTypeSelect.value = 'RUC';
+        }
+    });
+
+    // Permitir buscar con Enter
+    document.getElementById('documentNumber').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('searchCustomer').click();
+        }
+    });
+
+    // ==========================================
+    // FUNCIONES SUNAT
+    // ==========================================
+
+    // Enviar a SUNAT
+    document.getElementById('btnSendToSunat').addEventListener('click', function () {
+        const saleId = app.currentSaleId;
+
+        if (!saleId) {
+            alert('Error: No se encontró ID de venta');
+            return;
+        }
+
+        // Ocultar botón y mostrar progreso
+        document.getElementById('btnSendToSunat').style.display = 'none';
+        document.getElementById('sunatProgress').style.display = 'block';
+        document.getElementById('btnCloseSaleModal').disabled = true;
+
+        // Enviar a SUNAT
+        fetch(`/pos/send-to-sunat/${saleId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                // Ocultar progreso
+                document.getElementById('sunatProgress').style.display = 'none';
+                document.getElementById('btnCloseSaleModal').disabled = false;
+
+                // Mostrar resultado
+                const resultDiv = document.getElementById('sunatResult');
+                resultDiv.style.display = 'block';
+
+                if (data.success) {
+                    const status = data.sunat_status;
+
+                    if (status === 'ACCEPTED') {
+                        resultDiv.innerHTML = `
+        <div class="alert alert-success">
+            <i class="bi bi-check-circle-fill"></i>
+            <strong>Boleta aceptada por SUNAT</strong>
+            <p class="mb-0 small">${data.message || 'Comprobante válido y registrado'}</p>
+            ${data.pdf_url ? `
+            <hr>
+            <a href="${data.pdf_url}" class="btn btn-sm btn-success" target="_blank">
+                <i class="bi bi-file-pdf"></i> Descargar PDF
+            </a>
+            ` : ''}
+        </div>
+        `;
+                        document.getElementById('btnCloseSaleModal').textContent = 'Cerrar';
+                    } else if (status === 'PENDING') {
+                        resultDiv.innerHTML = `
+        <div class="alert alert-warning">
+            <i class="bi bi-clock-fill"></i>
+            <strong>Boleta en proceso</strong>
+            <p class="mb-0 small">La boleta está siendo procesada por SUNAT</p>
+        </div>
+        `;
+                    } else if (status === 'REJECTED') {
+                        resultDiv.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="bi bi-x-circle-fill"></i>
+            <strong>Boleta rechazada por SUNAT</strong>
+            <p class="mb-0 small">${data.message || 'Revise los datos del comprobante'}</p>
+        </div>
+        `;
+                    } else if (status === 'ERROR') {
+                        resultDiv.innerHTML = `
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <strong>Error temporal</strong>
+            <p class="mb-0 small">${data.message || 'Se reintentará automáticamente'}</p>
+        </div>
+        `;
+                    }
+                } else {
+                    resultDiv.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="bi bi-x-circle-fill"></i>
+            <strong>Error al enviar a SUNAT</strong>
+            <p class="mb-0 small">${data.message || 'Intente nuevamente'}</p>
+        </div>
+        `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('sunatProgress').style.display = 'none';
+                document.getElementById('btnCloseSaleModal').disabled = false;
+
+                const resultDiv = document.getElementById('sunatResult');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="bi bi-x-circle-fill"></i>
+            <strong>Error de conexión</strong>
+            <p class="mb-0 small">${error.message || 'No se pudo conectar con el servidor'}</p>
+        </div>
+        `;
+            });
+    });
+
+    // Cerrar modal y recargar página
+    document.getElementById('btnCloseSaleModal').addEventListener('click', function () {
+        location.reload();
+    });
+
+    // Al cerrar el modal con X, también recargar
+    document.getElementById('saleSuccessModal').addEventListener('hidden.bs.modal', function () {
+        location.reload();
+    });
 </script>
 {% endblock %}

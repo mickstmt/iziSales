@@ -1,0 +1,176 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Detalle de Venta {{ sale.correlative }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/sales">Ventas</a></li>
+                    <li class="breadcrumb-item active">{{ sale.correlative }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3">
+                <i class="bi bi-receipt"></i> Venta {{ sale.correlative }}
+            </h1>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group">
+                {% if sale.sunat_status == 'ACCEPTED' %}
+                <a href="/pos/download-pdf/{{ sale.id }}" class="btn btn-success">
+                    <i class="bi bi-file-pdf"></i> Descargar PDF
+                </a>
+                {% endif %}
+                <a href="/sales" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Volver al listado
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información General -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Información del Comprobante</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td class="text-muted">Fecha Emisión:</td>
+                            <td class="text-end">{{ sale.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Tipo Documento:</td>
+                            <td class="text-end">{{ sale.document_type }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Estado SUNAT:</td>
+                            <td class="text-end">
+                                {% if sale.sunat_status == 'ACCEPTED' %}
+                                <span class="badge bg-success">Aceptado</span>
+                                {% elif sale.sunat_status == 'PENDING' %}
+                                <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% elif sale.sunat_status == 'REJECTED' %}
+                                <span class="badge bg-danger">Rechazado</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Error</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Vendedor:</td>
+                            <td class="text-end">{{ sale.seller.full_name }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Datos del Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="mb-1">{{ sale.customer.name }}</h6>
+                    <p class="text-muted small mb-3">
+                        {{ sale.customer.document_type }}: {{ sale.customer.document_number }}
+                    </p>
+                    <table class="table table-sm mb-0">
+                        {% if sale.customer.email %}
+                        <tr>
+                            <td class="text-muted"><i class="bi bi-envelope"></i></td>
+                            <td class="text-end">{{ sale.customer.email }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if sale.customer.phone %}
+                        <tr>
+                            <td class="text-muted"><i class="bi bi-telephone"></i></td>
+                            <td class="text-end">{{ sale.customer.phone }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detalle de Productos -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Detalle de Items</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Cánt.</th>
+                                    <th>Descripción</th>
+                                    <th class="text-end">P. Unitario</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in sale.items %}
+                                <tr>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>
+                                        {{ item.product_name }}<br>
+                                        <small class="text-muted">SKU: {{ item.product_sku }}</small>
+                                    </td>
+                                    <td class="text-end">S/ {{ "%.2f"|format(item.unit_price) }}</td>
+                                    <td class="text-end">S/ {{ "%.2f"|format(item.subtotal) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Subtotal (Sin IGV):</strong></td>
+                                    <td class="text-end">S/ {{ "%.2f"|format(sale.subtotal) }}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>IGV (18%):</strong></td>
+                                    <td class="text-end">S/ {{ "%.2f"|format(sale.tax) }}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end text-primary">
+                                        <h4>Total:</h4>
+                                    </td>
+                                    <td class="text-end text-primary">
+                                        <h4>S/ {{ "%.2f"|format(sale.total) }}</h4>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {% if sale.notes %}
+            <div class="card mt-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Notas / Observaciones</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ sale.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if sale.sunat_response %}
+            <div class="card mt-4">
+                <div class="card-header bg-white text-info font-weight-bold">
+                    <h5 class="card-title mb-0">Respuesta SUNAT</h5>
+                </div>
+                <div class="card-body bg-light">
+                    <pre class="mb-0 small">{{ sale.sunat_response }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

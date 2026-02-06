@@ -1,0 +1,83 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Editar Usuario{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('users.index') }}">Usuarios</a></li>
+            <li class="breadcrumb-item active">Editar Usuario</li>
+        </ol>
+    </nav>
+    <h1 class="h3">Editar Usuario: {{ user.username }}</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <form action="{{ url_for('users.edit', user_id=user.id) }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre de Usuario</label>
+                        <input type="text" class="form-control bg-light" value="{{ user.username }}" disabled>
+                        <div class="form-text">El nombre de usuario no puede ser modificado.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="full_name" class="form-label">Nombre Completo</label>
+                        <input type="text" class="form-control" id="full_name" name="full_name"
+                            value="{{ user.full_name }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Correo Electrónico</label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}"
+                            required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Rol del Sistema</label>
+                        <select class="form-select" id="role" name="role" required {% if user.id==current_user.id
+                            %}disabled{% endif %}>
+                            <option value="seller" {% if user.role=='seller' %}selected{% endif %}>Vendedor</option>
+                            <option value="admin" {% if user.role=='admin' %}selected{% endif %}>Administrador</option>
+                            <option value="viewer" {% if user.role=='viewer' %}selected{% endif %}>Solo Lectura</option>
+                        </select>
+                        {% if user.id == current_user.id %}
+                        <input type="hidden" name="role" value="{{ user.role }}">
+                        <div class="form-text text-warning"><i class="bi bi-exclamation-triangle"></i> No puedes cambiar
+                            tu propio rol.</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{{ url_for('users.index') }}" class="btn btn-light me-md-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-light border-0">
+            <div class="card-body">
+                <h5 class="card-title text-warning"><i class="bi bi-shield-lock"></i> Seguridad</h5>
+                <p class="small mt-3">
+                    Para cambiar la contraseña de este usuario, utiliza la opción de <strong>Resetear
+                        Contraseña</strong> en la lista principal de usuarios.
+                </p>
+                <div class="mt-4">
+                    <p class="mb-1 small text-muted">Registrado el:</p>
+                    <p class="small fw-bold">{{ user.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+
+                    {% if user.last_login %}
+                    <p class="mb-1 small text-muted">Último acceso:</p>
+                    <p class="small fw-bold">{{ user.last_login.strftime('%d/%m/%Y %H:%M') }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -85,6 +85,7 @@ class Config:
     # ==============================================
     PSE_API_URL = os.getenv('PSE_API_URL')
     PSE_TOKEN = os.getenv('PSE_TOKEN')
+    PSE_SANDBOX_MODE = os.getenv('PSE_SANDBOX_MODE', 'True').lower() == 'true'
     PSE_TIMEOUT = 30
 
     # ==============================================
@@ -204,11 +205,14 @@ class TestingConfig(Config):
     TESTING = True
     DEBUG = True
 
-    # Base de datos de prueba separada
+    # Base de datos de prueba (SQLite in-memory por defecto para portabilidad)
     SQLALCHEMY_DATABASE_URI = os.getenv(
         'TEST_DATABASE_URL',
-        'mysql+pymysql://root:password@localhost:3306/izisales_test'
+        'sqlite://'
     )
+
+    # Desactivar opciones de pool incompatibles con SQLite
+    SQLALCHEMY_ENGINE_OPTIONS = {}
 
     # Desactivar CSRF en tests
     WTF_CSRF_ENABLED = False
